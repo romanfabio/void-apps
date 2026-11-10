@@ -1,0 +1,50 @@
+# Shared detekt rules, applied on top of detekt's default config (buildUponDefaultConfig = true).
+# Changes require owner approval (CLAUDE.md §6).
+
+naming:
+  MatchingDeclarationName:
+    # <Screen>Navigation.kt holds <Screen>Destination plus extensions (docs/NAMING.md §4).
+    active: false
+  FunctionNaming:
+    # Composables are PascalCase nouns (docs/NAMING.md §5).
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][_A-Z0-9]*'
+
+complexity:
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+    ignoreAnnotated: ['Composable']
+  TooManyFunctions:
+    thresholdInFiles: 15
+    thresholdInClasses: 15
+    ignorePrivate: true
+    ignoreAnnotatedFunctions: ['Preview', 'PreviewLightDark', 'PreviewFontScale']
+
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    excludes: ['**/test/**', '**/androidTest/**', '**/designsystem/theme/**']
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview', 'PreviewLightDark', 'PreviewFontScale']
+  ForbiddenImport:
+    active: true
+    imports:
+      - value: 'kotlinx.coroutines.GlobalScope'
+        reason: 'Use viewModelScope or an injected scope (docs/ARCHITECTURE.md §8).'
+      - value: 'io.mockk.*'
+        reason: 'Mocking frameworks are forbidden; use fakes (docs/TESTING.md §1).'
+      - value: 'org.mockito.*'
+        reason: 'Mocking frameworks are forbidden; use fakes (docs/TESTING.md §1).'
+      - value: 'androidx.compose.material.icons.*'
+        reason: 'Use vector drawables (docs/DESIGN_SYSTEM.md §8).'
+      - value: 'androidx.lifecycle.LiveData'
+        reason: 'Use StateFlow (docs/ARCHITECTURE.md §5).'
+
+coroutines:
+  InjectDispatcher:
+    active: true
+    excludes: ['**/core/common/**', '**/test/**', '**/androidTest/**']

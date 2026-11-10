@@ -1,0 +1,38 @@
+# --- Signing material and secrets (docs/SECURITY.md §2) ---
+*.jks
+*.keystore
+*.p12
+*.pk8
+*.pem
+*.key
+keystores/*
+!keystores/README.md
+**/signing.properties
+.env
+.env.*
+*.secrets.properties
+google-services.json
+*-service-account*.json
+
+# --- Machine-specific ---
+local.properties
+
+# --- Build outputs ---
+build/
+.gradle/
+.kotlin/
+*.apk
+*.aab
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- IDE ---
+.idea/
+!.idea/codeStyles/
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- Claude Code local settings ---
+.claude/settings.local.json

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Void Template</string>
+
+    <string name="home_title">Items</string>
+    <string name="home_add_cd">Add item</string>
+    <string name="home_delete_cd">Delete %1$s</string>
+    <string name="home_new_item_name">Item %1$d</string>
+    <string name="home_empty_title">No items yet</string>
+    <string name="home_empty_body">Tap the add button to create your first item.</string>
+    <string name="home_load_error">Couldn\'t load your items.</string>
+    <string name="home_add_error">Couldn\'t add the item.</string>
+    <string name="home_delete_error">Couldn\'t delete the item.</string>
+    <string name="home_item_deleted">Item deleted</string>
+</resources>

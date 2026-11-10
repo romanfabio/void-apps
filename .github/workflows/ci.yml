@@ -1,0 +1,185 @@
+# Workflow `CI` — docs/CICD.md §2. Changes require owner approval (CLAUDE.md §6).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false
+
+jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.detect.outputs.modules }}
+      apps: ${{ steps.detect.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Fail if forbidden files are tracked (docs/SECURITY.md §2)
+        run: |
+          forbidden=$(git ls-files | grep -E \
+            '\.(jks|keystore|p12|pk8|pem|key|apk|aab)$|(^|/)keystore\.properties$|(^|/)signing\.properties$|(^|/)local\.properties$|(^|/)\.env(\..*)?$|\.secrets\.properties$|google-services\.json$|service-account.*\.json$' \
+            || true)
+          if [ -n "$forbidden" ]; then
+            echo "::error::Forbidden files are tracked by git:"
+            echo "$forbidden"
+            exit 1
+          fi
+
+      - name: Detect changed modules
+        id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base="$PUSH_BEFORE"
+          [ "$EVENT" = "pull_request" ] && base="$PR_BASE"
+
+          all_modules=$(grep -oE 'include\("(:[a-z0-9:]+)"\)' settings.gradle.kts | sed -E 's/include\("(.*)"\)/\1/')
+          all_apps=$(echo "$all_modules" | grep '^:apps:' || true)
+
+          full=false
+          core_changed=false
+          selected=""
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            full=true
+          else
+            while IFS= read -r f; do
+              case "$f" in
+                apps/_template/*) selected+=":apps:template"$'\n' ;;
+                apps/*/*) a="${f#apps/}"; selected+=":apps:${a%%/*}"$'\n' ;;
+                core/*/*) m="${f#core/}"; selected+=":core:${m%%/*}"$'\n'; core_changed=true ;;
+                build-logic/*|gradle/*|config/*|*.gradle.kts|gradle.properties|gradlew|gradlew.bat|.github/workflows/*) full=true ;;
+              esac
+            done < <(git diff --name-only "$base" HEAD)
+          fi
+
+          if [ "$full" = true ]; then
+            selected="$all_modules"
+          elif [ "$core_changed" = true ]; then
+            selected+="$all_apps"
+          fi
+
+          to_json() { grep -v '^$' | sort -u | jq -R . | jq -cs .; }
+          modules=$(printf '%s\n' "$selected" | grep -xF -f <(echo "$all_modules") | to_json || echo '[]')
+          apps=$(echo "$modules" | jq -c '[.[] | select(startswith(":apps:"))]')
+          echo "modules=$modules" >> "$GITHUB_OUTPUT"
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
+          echo "Modules: $modules"
+
+  quality:
+    name: quality (${{ matrix.module }})
+    needs: changes
+    if: needs.changes.outputs.modules != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.changes.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Spotless, detekt, Android Lint
+        run: ./gradlew ${{ matrix.module }}:spotlessCheck ${{ matrix.module }}:detekt ${{ matrix.module }}:lintDebug
+      - name: License allowlist (apps only)
+        if: startsWith(matrix.module, ':apps:')
+        run: ./gradlew ${{ matrix.module }}:prepareLibraryDefinitionsRelease
+
+  test:
+    name: test (${{ matrix.module }})
+    needs: changes
+    if: needs.changes.outputs.modules != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.changes.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Unit and Robolectric tests, coverage
+        run: ./gradlew ${{ matrix.module }}:testDebugUnitTest ${{ matrix.module }}:koverVerify
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ strategy.job-index }}
+          path: |
+            **/build/reports/tests
+            **/build/reports/kover
+          retention-days: 7
+
+  build:
+    name: build (${{ matrix.module }})
+    needs: [changes, quality, test]
+    if: needs.changes.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.changes.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Assemble debug and unsigned release
+        run: ./gradlew ${{ matrix.module }}:assembleDebug ${{ matrix.module }}:assembleRelease
+      - name: Resolve artifact name
+        id: meta
+        env:
+          MODULE: ${{ matrix.module }}
+        run: |
+          app="${MODULE##*:}"
+          dir="apps/$app"; [ "$app" = "template" ] && dir="apps/_template"
+          echo "name=void-$app-debug-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.name }}
+          path: ${{ steps.meta.outputs.dir }}/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+  ci-result:
+    name: ci-result
+    needs: [changes, quality, test, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::A required job ended with '$r'"; exit 1 ;;
+            esac
+          done
