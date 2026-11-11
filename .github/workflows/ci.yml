@@ -97,7 +97,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - name: Spotless, detekt, Android Lint
         run: ./gradlew ${{ matrix.module }}:spotlessCheck ${{ matrix.module }}:detekt ${{ matrix.module }}:lintDebug
       - name: License allowlist (apps only)
@@ -119,7 +119,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - name: Unit and Robolectric tests, coverage
         run: ./gradlew ${{ matrix.module }}:testDebugUnitTest ${{ matrix.module }}:koverVerify
       - name: Upload reports
@@ -147,7 +147,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - name: Assemble debug and unsigned release
         run: ./gradlew ${{ matrix.module }}:assembleDebug ${{ matrix.module }}:assembleRelease
       - name: Resolve artifact name
