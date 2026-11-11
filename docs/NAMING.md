@@ -135,6 +135,31 @@ Format: `<type>(<scope>): <subject>`
   - `fix(core-designsystem): raise contrast of outline color in dark theme`
   - `build(repo): bump compose bom`
 
+### Commit identity
+Every commit (author **and** committer) uses exactly:
+
+```
+Fabio Roman <61688500+romanfabio@users.noreply.github.com>
+```
+
+- Never use a personal or work email address; the GitHub noreply address keeps real
+  addresses out of public history.
+- The identity is set **per repository**, not globally, because the machine's global
+  git config holds a different identity:
+
+  ```bash
+  git config --local user.name "Fabio Roman"
+  git config --local user.email "61688500+romanfabio@users.noreply.github.com"
+  ```
+
+- Before the first commit in a fresh clone or worktree, verify it:
+  `git config user.email` must print the noreply address. After committing,
+  `git log -1 --format='%an <%ae> | %cn <%ce>'` must show it for both author and committer.
+- Never override it with `-c user.email=…`, `--author`, or `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
+  variables, and never change the git config files of other scopes.
+- If a commit was made with another identity, stop and ask the owner before rewriting
+  history: rewriting a pushed `main` requires a force-push.
+
 ### Tags and releases
 - Release tag: `<app>/v<major>.<minor>.<patch>`, e.g. `scanner/v1.2.0`.
 - GitHub Release title: `Void <Display Name> <version>`, e.g. `Void Scanner 1.2.0`.

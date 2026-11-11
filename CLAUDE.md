@@ -117,6 +117,10 @@ If a rule in a doc conflicts with this file, the doc wins and this file must be 
 11. **Secrets** never enter git (see `docs/SECURITY.md`).
 12. **Per-app README** must follow `docs/README_TEMPLATE.md` and be updated in the same
     change that alters what it describes.
+13. **Git identity.** Every commit (author and committer) is
+    `Fabio Roman <61688500+romanfabio@users.noreply.github.com>`. Set it with
+    `git config --local` and verify `git config user.email` before committing; never use
+    another email address (`docs/NAMING.md` §7, "Commit identity").
 
 ## 6. Changes that require explicit approval from the owner
 
@@ -161,7 +165,8 @@ Use the skill instead of improvising when the task matches:
 4. Add or update tests per `docs/TESTING.md`.
 5. Run the `verify` skill, including the real-attached-device step, and report the real
    result (device model, Android version, API level). No device attached → stop and ask.
-6. Commit using the Conventional Commits format in `docs/NAMING.md`.
+6. Check `git config user.email` prints the noreply address (§5 rule 13), then commit
+   using the Conventional Commits format in `docs/NAMING.md`.
 
 Never invent a decision that this file or `docs/` marks as **⚠️ DECISION NEEDED**;
 ask the owner instead.
